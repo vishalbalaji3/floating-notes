@@ -33,8 +33,11 @@ struct FormattingToolbar: View {
         HStack(spacing: 12) {
             Menu {
                 Button("Heading 1") { onInsert(.heading(1)) }
+                    .keyboardShortcut("1", modifiers: [.command, .option])
                 Button("Heading 2") { onInsert(.heading(2)) }
+                    .keyboardShortcut("2", modifiers: [.command, .option])
                 Button("Heading 3") { onInsert(.heading(3)) }
+                    .keyboardShortcut("3", modifiers: [.command, .option])
             } label: {
                 HStack(spacing: 2) {
                     Text("H").font(.system(size: 13, weight: .semibold))
@@ -45,9 +48,13 @@ struct FormattingToolbar: View {
 
             Menu {
                 Button("Bold") { onInsert(.bold) }
+                    .keyboardShortcut("b", modifiers: .command)
                 Button("Italic") { onInsert(.italic) }
+                    .keyboardShortcut("i", modifiers: .command)
                 Button("Underline") { onInsert(.underline) }
+                    .keyboardShortcut("u", modifiers: .command)
                 Button("Strikethrough") { onInsert(.strikethrough) }
+                    .keyboardShortcut("x", modifiers: [.command, .shift])
             } label: {
                 HStack(spacing: 2) {
                     Text("I").italic().font(.system(size: 13, weight: .semibold))
@@ -59,18 +66,22 @@ struct FormattingToolbar: View {
             Button { onInsert(.link) } label: {
                 Image(systemName: "link")
             }
+            .help("Link (⌘L)")
             Button { onInsert(.inlineCode) } label: {
                 Image(systemName: "chevron.left.forwardslash.chevron.right")
             }
+            .help("Inline Code (⌘E)")
 
             Divider().frame(height: 14)
 
             Button { onInsert(.codeBlock) } label: {
                 Image(systemName: "curlybraces")
             }
+            .help("Code Block (⌥⌘C)")
             Button { onInsert(.quote) } label: {
                 Image(systemName: "text.quote")
             }
+            .help("Block Quote (⇧⌘B)")
 
             Divider().frame(height: 14)
 

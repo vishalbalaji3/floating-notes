@@ -11,11 +11,12 @@ Each note is a plain `.md` file — no database or frontmatter. The default fold
 - Independently hide the Dock icon and menu-bar icon; the app keeps running and remains available through **⌥.**
 - CodeMirror 6 editor with Obsidian-style live preview: Markdown markers unfold around the cursor
 - GFM support for headings, tables, strikethrough, links, fenced code, lists, and interactive task checkboxes
+- Bullet lists use `*` in Markdown, preview as dots, and support Tab/Shift-Tab nesting with hanging indentation
 - Autosaves ~300ms after you stop typing; always flushes immediately on hide or note switch
 - Standard **⌘Z/⇧⌘Z**, **⌘X**, **⌘C**, **⌘V**, and **⌘A** editing shortcuts
-- Selection-aware formatting shortcuts: **⌘B** bold, **⌘I** italic, **⌘U** underline, **⇧⌘X** strikethrough, **⌘L** link, and **⌘E** inline code
+- Selection-aware formatting shortcuts: **⌘B** bold, **⌘I** italic, **⌘U** underline, **⇧⌘X** strikethrough, **⌘L** link, **⌘E** inline code, **⌥⌘C** code block, and **⇧⌘B** block quote
 - **⌘F** find, **⇧⌘F** find/replace, **⌘K** action panel, **⌘,** Settings, **⌘N** new note, **⌘P** search/switch notes, **⌘O** reveal notes folder, **⌘⌫** move to Trash
-- **⌘Q** hides Floating Notes but leaves its background process and global hotkey active; **Quit Floating Notes Completely** terminates it
+- **⌘Q** hides Floating Notes but leaves its background process and global hotkey active; **⇧⌘Q** confirms before quitting it completely
 - Switcher searches both titles and note bodies
 - Filename collisions append " 2", " 3", etc. (case- and accent-insensitive)
 - Settings (**⌘,**) for menu-bar visibility and selecting, revealing, or resetting the notes folder

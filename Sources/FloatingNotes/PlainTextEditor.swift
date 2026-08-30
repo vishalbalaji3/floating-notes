@@ -11,6 +11,8 @@ final class MarkdownWebView: WKWebView {
     @objc func toggleMarkdownStrikethrough(_ sender: Any?) { applyFormatting("strikethrough") }
     @objc func insertMarkdownLink(_ sender: Any?) { applyFormatting("link") }
     @objc func toggleMarkdownInlineCode(_ sender: Any?) { applyFormatting("inlineCode") }
+    @objc func insertMarkdownCodeBlock(_ sender: Any?) { applyFormatting("codeBlock") }
+    @objc func toggleMarkdownBlockQuote(_ sender: Any?) { applyFormatting("quote") }
 
     func applyFormatting(_ action: String, level: Int? = nil) {
         let encodedAction = Self.javascriptLiteral(action)
@@ -140,6 +142,13 @@ struct PlainTextEditor: NSViewRepresentable {
 
             case "showSettings":
                 parent.onShowSettings()
+
+            case "openURL":
+                guard let value = body["url"] as? String,
+                      let url = URL(string: value),
+                      let scheme = url.scheme?.lowercased(),
+                      scheme == "http" || scheme == "https" else { return }
+                NSWorkspace.shared.open(url)
 
             case "error":
                 if let error = body["message"] as? String {

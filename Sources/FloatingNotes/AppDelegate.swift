@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings: settings,
             onChangeNotesDirectory: { [weak self] url in
                 try self?.store.changeNotesDirectory(to: url)
+            },
+            onClose: { [weak self] in
+                self?.updateActivationPolicy()
             }
         )
         notesController = NotesWindowController(
@@ -26,11 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.onMenuBarIconChange = { [weak self] isVisible in
             self?.setMenuBarIconVisible(isVisible)
         }
-        settings.onDockIconChange = { [weak self] isVisible in
-            self?.setDockIconVisible(isVisible)
+        settings.onDockIconChange = { [weak self] _ in
+            self?.updateActivationPolicy()
         }
         setMenuBarIconVisible(settings.showMenuBarIcon)
-        setDockIconVisible(settings.showDockIcon)
+        updateActivationPolicy()
 
         hotKeyManager = HotKeyManager { [weak self] in
             self?.notesController.toggle()
@@ -60,6 +63,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showSettings() {
+        // Accessory apps do not present their main menu. Temporarily become a regular app while
+        // Settings is open so every app-menu command remains available even when the Dock icon
+        // preference is disabled.
+        NSApp.setActivationPolicy(.regular)
         settingsController.show()
     }
 
@@ -74,11 +81,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func quitCompletely() {
+        let alert = NSAlert()
+        alert.messageText = "Quit Floating Notes Completely?"
+        alert.informativeText = "The global shortcut and menu bar icon will stop working until you open Floating Notes again."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Quit Completely")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.first?.hasDestructiveAction = true
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
         NSApp.terminate(nil)
     }
 
-    private func setDockIconVisible(_ isVisible: Bool) {
-        NSApp.setActivationPolicy(isVisible ? .regular : .accessory)
+    private func updateActivationPolicy() {
+        let settingsAreVisible = settingsController?.window?.isVisible == true
+        NSApp.setActivationPolicy(settings.showDockIcon || settingsAreVisible ? .regular : .accessory)
     }
 
     private func setMenuBarIconVisible(_ isVisible: Bool) {
@@ -101,7 +117,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(item("Reveal Notes Folder", action: #selector(revealFolder)))
         menu.addItem(.separator())
         menu.addItem(item("Quit Floating Notes", action: #selector(quitToBackground), keyEquivalent: "q"))
-        menu.addItem(item("Quit Floating Notes Completely", action: #selector(quitCompletely)))
+        menu.addItem(item(
+            "Quit Floating Notes Completely",
+            action: #selector(quitCompletely),
+            keyEquivalent: "q",
+            modifiers: [.command, .shift]
+        ))
         return menu
     }
 
@@ -118,7 +139,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(NSMenuItem(title: "Hide Floating Notes", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
         appMenu.addItem(.separator())
         appMenu.addItem(item("Quit Floating Notes", action: #selector(quitToBackground), keyEquivalent: "q"))
-        appMenu.addItem(item("Quit Floating Notes Completely", action: #selector(quitCompletely)))
+        appMenu.addItem(item(
+            "Quit Floating Notes Completely",
+            action: #selector(quitCompletely),
+            keyEquivalent: "q",
+            modifiers: [.command, .shift]
+        ))
         let appRoot = NSMenuItem()
         appRoot.submenu = appMenu
         mainMenu.addItem(appRoot)
@@ -155,6 +181,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         formatMenu.addItem(.separator())
         formatMenu.addItem(responderItem("Link", action: "insertMarkdownLink:", keyEquivalent: "l"))
         formatMenu.addItem(responderItem("Inline Code", action: "toggleMarkdownInlineCode:", keyEquivalent: "e"))
+        formatMenu.addItem(responderItem(
+            "Code Block",
+            action: "insertMarkdownCodeBlock:",
+            keyEquivalent: "c",
+            modifiers: [.command, .option]
+        ))
+        formatMenu.addItem(responderItem(
+            "Block Quote",
+            action: "toggleMarkdownBlockQuote:",
+            keyEquivalent: "b",
+            modifiers: [.command, .shift]
+        ))
         let formatRoot = NSMenuItem(title: "Format", action: nil, keyEquivalent: "")
         formatRoot.submenu = formatMenu
         mainMenu.addItem(formatRoot)
@@ -170,8 +208,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
     }
 
-    private func item(_ title: String, action: Selector, keyEquivalent: String = "") -> NSMenuItem {
+    private func item(
+        _ title: String,
+        action: Selector,
+        keyEquivalent: String = "",
+        modifiers: NSEvent.ModifierFlags = .command
+    ) -> NSMenuItem {
         let menuItem = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        menuItem.keyEquivalentModifierMask = modifiers
         menuItem.target = self
         return menuItem
     }

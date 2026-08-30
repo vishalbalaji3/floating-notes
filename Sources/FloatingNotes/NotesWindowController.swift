@@ -11,6 +11,11 @@ final class NotesPanel: NSPanel {
 final class NotesWindowController: NSWindowController {
     private let store: NotesStore
 
+    /// Matches the preferred placement captured on a 1728 × 1084 visible screen:
+    /// a 67-point gap from the right and a center 52.7% up the usable display area.
+    private static let defaultRightInsetFraction: CGFloat = 67.0 / 1728.0
+    private static let defaultVerticalCenterFraction: CGFloat = 0.527
+
     init(store: NotesStore, onOpenSettings: @escaping () -> Void) {
         self.store = store
         let panel = NotesPanel(
@@ -38,6 +43,7 @@ final class NotesWindowController: NSWindowController {
             onHide: { [weak self] in self?.hide() }
         )
         panel.contentView = NSHostingView(rootView: content)
+        positionOnRight(panel)
     }
 
     @available(*, unavailable)
@@ -64,6 +70,34 @@ final class NotesWindowController: NSWindowController {
     func hide() {
         store.flush()
         window?.orderOut(nil)
+    }
+
+    private func positionOnRight(_ window: NSWindow) {
+        guard let screen = preferredScreen(for: window) else { return }
+        let visibleFrame = screen.visibleFrame
+        let windowSize = window.frame.size
+        let rightInset = visibleFrame.width * Self.defaultRightInsetFraction
+        let preferredOrigin = NSPoint(
+            x: visibleFrame.maxX - windowSize.width - rightInset,
+            y: visibleFrame.minY
+                + visibleFrame.height * Self.defaultVerticalCenterFraction
+                - windowSize.height / 2
+        )
+
+        let maximumX = max(visibleFrame.minX, visibleFrame.maxX - windowSize.width)
+        let maximumY = max(visibleFrame.minY, visibleFrame.maxY - windowSize.height)
+        window.setFrameOrigin(NSPoint(
+            x: min(max(preferredOrigin.x, visibleFrame.minX), maximumX),
+            y: min(max(preferredOrigin.y, visibleFrame.minY), maximumY)
+        ))
+    }
+
+    private func preferredScreen(for window: NSWindow) -> NSScreen? {
+        let mouseLocation = NSEvent.mouseLocation
+        return NSScreen.screens.first { NSMouseInRect(mouseLocation, $0.frame, false) }
+            ?? window.screen
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
     }
 
     private func revealFolder() {

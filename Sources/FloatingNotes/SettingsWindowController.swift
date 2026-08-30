@@ -92,8 +92,15 @@ struct SettingsView: View {
     }
 }
 
-final class SettingsWindowController: NSWindowController {
-    init(settings: AppSettings, onChangeNotesDirectory: @escaping (URL) throws -> Void) {
+final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    private let onClose: () -> Void
+
+    init(
+        settings: AppSettings,
+        onChangeNotesDirectory: @escaping (URL) throws -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        self.onClose = onClose
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 330),
             styleMask: [.titled, .closable],
@@ -108,6 +115,7 @@ final class SettingsWindowController: NSWindowController {
             rootView: SettingsView(settings: settings, onChangeNotesDirectory: onChangeNotesDirectory)
         )
         super.init(window: window)
+        window.delegate = self
     }
 
     @available(*, unavailable)
@@ -119,5 +127,9 @@ final class SettingsWindowController: NSWindowController {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        onClose()
     }
 }

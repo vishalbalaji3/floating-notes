@@ -1,8 +1,8 @@
 import { EditorState, EditorSelection } from '@codemirror/state';
 import { EditorView, Decoration, ViewPlugin, WidgetType, keymap } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
-import { syntaxHighlighting, HighlightStyle, syntaxTree } from '@codemirror/language';
+import { syntaxHighlighting, HighlightStyle, syntaxTree, indentUnit } from '@codemirror/language';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { GFM } from '@lezer/markdown';
 import { tags } from '@lezer/highlight';
@@ -48,6 +48,36 @@ class CheckboxWidget extends WidgetType {
   ignoreEvent() { return false; }
 }
 
+class ListMarkerWidget extends WidgetType {
+  constructor(label, className) {
+    super();
+    this.label = label;
+    this.className = className;
+  }
+
+  eq(other) {
+    return this.label === other.label && this.className === other.className;
+  }
+
+  toDOM() {
+    const marker = document.createElement('span');
+    marker.className = this.className;
+    marker.textContent = this.label;
+    marker.setAttribute('aria-hidden', 'true');
+    return marker;
+  }
+}
+
+function liveLinkDecoration(rawURL) {
+  const url = rawURL.startsWith('<') && rawURL.endsWith('>')
+    ? rawURL.slice(1, -1)
+    : rawURL;
+  return {
+    class: 'cm-live-link',
+    attributes: url ? { 'data-url': url, title: `Open ${url}` } : {},
+  };
+}
+
 function buildPreviewDecorations(view) {
   const decorations = [];
   const lineClasses = new Set();
@@ -56,12 +86,26 @@ function buildPreviewDecorations(view) {
 
   const cursorInside = (from, to) => selection.from >= from && selection.to <= to;
   const cursorOnLine = (position) => view.state.doc.lineAt(position).number === cursorLine;
-  const addLine = (position, className) => {
+  const addLine = (position, className, attributes = {}) => {
     const lineStart = view.state.doc.lineAt(position).from;
-    const key = `${lineStart}:${className}`;
+    const key = `${lineStart}:${className}:${JSON.stringify(attributes)}`;
     if (lineClasses.has(key)) return;
     lineClasses.add(key);
-    decorations.push(Decoration.line({ class: className }).range(lineStart));
+    decorations.push(Decoration.line({ class: className, attributes }).range(lineStart));
+  };
+  const listDepth = (syntaxNode) => {
+    let depth = -1;
+    for (let current = syntaxNode; current; current = current.parent) {
+      if (current.name === 'BulletList' || current.name === 'OrderedList') depth += 1;
+    }
+    return Math.max(0, depth);
+  };
+  const addListLine = (line, depth) => {
+    addLine(
+      line.from,
+      'cm-live-list-line',
+      { style: `--list-indent: ${depth * 22}px` }
+    );
   };
 
   addLine(view.state.doc.line(cursorLine).from, 'cm-active-markdown-line');
@@ -115,14 +159,32 @@ function buildPreviewDecorations(view) {
             break;
 
           case 'Link':
-            decorations.push(Decoration.mark({ class: 'cm-live-link' }).range(node.from, node.to));
+            {
+              const urlNode = node.node.getChild('URL');
+              const rawURL = urlNode ? view.state.sliceDoc(urlNode.from, urlNode.to) : '';
+              decorations.push(Decoration.mark(liveLinkDecoration(rawURL)).range(node.from, node.to));
+            }
             break;
           case 'LinkMark':
-          case 'URL':
             if (!cursorInside(parentFrom, parentTo)) {
               decorations.push(Decoration.replace({}).range(node.from, node.to));
             } else {
               decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
+            }
+            break;
+          case 'URL':
+            // A URL node is the destination markup inside [label](url), but it is
+            // also the visible content of bare URLs and <autolinks>. Only hide it
+            // for labeled links whose readable text is rendered separately.
+            if (parent?.name === 'Link') {
+              if (!cursorInside(parentFrom, parentTo)) {
+                decorations.push(Decoration.replace({}).range(node.from, node.to));
+              } else {
+                decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
+              }
+            } else {
+              const rawURL = view.state.sliceDoc(node.from, node.to);
+              decorations.push(Decoration.mark(liveLinkDecoration(rawURL)).range(node.from, node.to));
             }
             break;
 
@@ -130,13 +192,23 @@ function buildPreviewDecorations(view) {
             const first = view.state.doc.lineAt(node.from).number;
             const last = view.state.doc.lineAt(node.to).number;
             for (let line = first; line <= last; line += 1) {
-              addLine(view.state.doc.line(line).from, 'cm-live-quote');
+              const edgeClasses = [
+                line === first ? 'cm-live-quote-start' : '',
+                line === last ? 'cm-live-quote-end' : '',
+              ].filter(Boolean).join(' ');
+              addLine(view.state.doc.line(line).from, `cm-live-quote ${edgeClasses}`);
             }
             break;
           }
-          case 'QuoteMark':
-            decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
+          case 'QuoteMark': {
+            if (cursorOnLine(node.from)) {
+              decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
+            } else {
+              const trailingSpace = view.state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
+              decorations.push(Decoration.replace({}).range(node.from, node.to + trailingSpace));
+            }
             break;
+          }
 
           case 'FencedCode': {
             const first = view.state.doc.lineAt(node.from).number;
@@ -149,16 +221,60 @@ function buildPreviewDecorations(view) {
           case 'CodeInfo':
             decorations.push(Decoration.mark({ class: 'cm-code-language' }).range(node.from, node.to));
             break;
-          case 'ListMark':
+          case 'ListMark': {
             if (/^ \[[ xX]\]/.test(view.state.sliceDoc(node.to, node.to + 4))) break;
-            decorations.push(Decoration.mark({ class: 'cm-list-marker' }).range(node.from, node.to));
+            const marker = view.state.sliceDoc(node.from, node.to);
+            const line = view.state.doc.lineAt(node.from);
+            const prefix = view.state.sliceDoc(line.from, node.from);
+            const canNormalizeIndentation = /^\s*$/.test(prefix);
+            const depth = listDepth(node.node);
+            const unordered = /^[-+*]$/.test(marker);
+
+            if (cursorOnLine(node.from)) {
+              const normalizeActiveLine = canNormalizeIndentation && selection.head >= node.from;
+              if (normalizeActiveLine) {
+                if (prefix.length) decorations.push(Decoration.replace({}).range(line.from, node.from));
+                addListLine(line, depth);
+              }
+              decorations.push(
+                Decoration.mark({
+                  class: unordered ? 'cm-list-marker cm-list-marker-unordered' : 'cm-list-marker',
+                }).range(node.from, node.to)
+              );
+              break;
+            }
+
+            if (canNormalizeIndentation) addListLine(line, depth);
+            const bulletDepth = Math.min(2, depth);
+            const bulletLabels = ['•', '◦', '▪'];
+            decorations.push(
+              Decoration.replace({
+                widget: new ListMarkerWidget(
+                  unordered ? bulletLabels[bulletDepth] : marker,
+                  unordered
+                    ? `cm-list-bullet cm-list-bullet-${bulletDepth}`
+                    : 'cm-list-number'
+                ),
+              }).range(canNormalizeIndentation ? line.from : node.from, node.to)
+            );
             break;
+          }
           case 'TaskMarker': {
-            const possibleListStart = node.from - 2;
-            const fullFrom = possibleListStart >= 0
-              && view.state.sliceDoc(possibleListStart, node.from) === '- '
-              ? possibleListStart
-              : node.from;
+            const line = view.state.doc.lineAt(node.from);
+            const prefix = view.state.sliceDoc(line.from, node.from);
+            const isListTask = /^\s*[-+*]\s+$/.test(prefix);
+            const fullFrom = isListTask ? line.from : node.from;
+            if (isListTask) {
+              const markerStart = line.from + (prefix.match(/^\s*/)?.[0].length ?? 0);
+              if (cursorOnLine(node.from)) {
+                if (selection.head >= markerStart && markerStart > line.from) {
+                  decorations.push(Decoration.replace({}).range(line.from, markerStart));
+                  addListLine(line, listDepth(node.node));
+                }
+                break;
+              }
+              addListLine(line, listDepth(node.node));
+            }
             if (cursorOnLine(node.from)) break;
             const marker = view.state.sliceDoc(node.from, node.to);
             decorations.push(
@@ -215,6 +331,19 @@ const previewPlugin = ViewPlugin.fromClass(class {
     }
   }
 }, { decorations: (value) => value.decorations });
+
+const openLinkHandler = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    if (event.button !== 0) return false;
+    const link = event.target?.closest?.('.cm-live-link[data-url]');
+    if (!link || !view.dom.contains(link)) return false;
+    const url = link.getAttribute('data-url');
+    if (!url || !/^https?:\/\//i.test(url)) return false;
+    event.preventDefault();
+    bridge('openURL', { url });
+    return true;
+  },
+});
 
 function wrapSelection(view, opening, closing) {
   const { from, to } = view.state.selection.main;
@@ -310,9 +439,9 @@ function applyFormatting(action, level = 1) {
       break;
     }
     case 'quote': toggleLinePrefix(editor, '> ', /^>\s/); break;
-    case 'bulletList': toggleLinePrefix(editor, '- ', /^[-+*]\s/); break;
+    case 'bulletList': toggleLinePrefix(editor, '* ', /^[-+*]\s/); break;
     case 'numberedList': toggleLinePrefix(editor, (index) => `${index + 1}. `, /^\d+\.\s/); break;
-    case 'checklist': toggleLinePrefix(editor, '- [ ] ', /^-\s\[[ xX]\]\s/); break;
+    case 'checklist': toggleLinePrefix(editor, '* [ ] ', /^[-+*]\s\[[ xX]\]\s/); break;
     case 'link': {
       const range = editor.state.selection.main;
       const selected = editor.state.sliceDoc(range.from, range.to) || 'text';
@@ -343,14 +472,17 @@ function applyFormatting(action, level = 1) {
 }
 
 const formattingKeymap = [
+  indentWithTab,
   { key: 'Mod-k', run: () => { bridge('showActions'); return true; } },
   { key: 'Mod-,', run: () => { bridge('showSettings'); return true; } },
+  { key: 'Mod-Shift-b', run: () => { applyFormatting('quote'); return true; } },
   { key: 'Mod-b', run: (view) => { wrapSelection(view, '**', '**'); return true; } },
   { key: 'Mod-i', run: (view) => { wrapSelection(view, '*', '*'); return true; } },
   { key: 'Mod-u', run: (view) => { wrapSelection(view, '<u>', '</u>'); return true; } },
   { key: 'Mod-Shift-x', run: (view) => { wrapSelection(view, '~~', '~~'); return true; } },
   { key: 'Mod-l', run: () => { applyFormatting('link'); return true; } },
   { key: 'Mod-e', run: (view) => { wrapSelection(view, '`', '`'); return true; } },
+  { key: 'Mod-Alt-c', run: () => { applyFormatting('codeBlock'); return true; } },
 ];
 
 const highlightStyle = HighlightStyle.define([
@@ -400,8 +532,21 @@ const theme = EditorView.theme({
     backgroundColor: 'rgba(127, 127, 127, 0.13)',
     borderRadius: '4px',
   },
-  '.cm-live-link': { color: 'var(--editor-link)', textDecoration: 'underline', textUnderlineOffset: '2px' },
-  '.cm-live-quote': { borderLeft: '3px solid rgba(80, 120, 180, 0.55)', paddingLeft: '10px', color: 'var(--editor-secondary)' },
+  '.cm-live-link': {
+    color: 'var(--editor-link)',
+    textDecoration: 'underline',
+    textUnderlineOffset: '2px',
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-all',
+    cursor: 'pointer',
+  },
+  '.cm-live-quote': {
+    borderLeft: '3px solid var(--editor-quote)',
+    paddingLeft: '12px',
+    color: 'var(--editor-text)',
+  },
+  '.cm-live-quote-start': { paddingTop: '5px' },
+  '.cm-live-quote-end': { paddingBottom: '5px' },
   '.cm-live-code-block': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
     fontSize: '0.9em',
@@ -411,6 +556,33 @@ const theme = EditorView.theme({
   },
   '.cm-code-language': { opacity: '0.45', fontSize: '0.85em' },
   '.cm-list-marker': { color: 'var(--editor-secondary)', fontWeight: '600' },
+  '.cm-list-marker-unordered': {
+    display: 'inline-block',
+    width: '12px',
+    color: 'var(--editor-link)',
+    textAlign: 'center',
+  },
+  '.cm-live-list-line': {
+    paddingLeft: 'calc(16px + var(--list-indent, 0px))',
+    textIndent: '-16px',
+  },
+  '.cm-list-bullet': {
+    display: 'inline-block',
+    width: '12px',
+    color: 'var(--editor-link)',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  '.cm-list-bullet-0': { fontSize: '1em' },
+  '.cm-list-bullet-1': { fontSize: '0.85em' },
+  '.cm-list-bullet-2': { fontSize: '0.75em' },
+  '.cm-list-number': {
+    display: 'inline-block',
+    minWidth: '15px',
+    color: 'var(--editor-secondary)',
+    fontWeight: '600',
+    textAlign: 'right',
+  },
   '.cm-task-checkbox': { margin: '0 6px 0 1px', verticalAlign: 'middle', cursor: 'pointer' },
   '.cm-live-table': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -431,8 +603,10 @@ function createEditor() {
       history(),
       keymap.of([...formattingKeymap, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
       markdown({ extensions: GFM }),
+      indentUnit.of('  '),
       syntaxHighlighting(highlightStyle),
       previewPlugin,
+      openLinkHandler,
       search({ top: true }),
       highlightSelectionMatches(),
       theme,
