@@ -8,8 +8,9 @@ final class NotesPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-final class NotesWindowController: NSWindowController {
+final class NotesWindowController: NSWindowController, NSWindowDelegate {
     private let store: NotesStore
+    private var applicationToReactivate: NSRunningApplication?
 
     /// Matches the preferred placement captured on a 1728 × 1084 visible screen:
     /// a 67-point gap from the right and a center 52.7% up the usable display area.
@@ -35,6 +36,7 @@ final class NotesWindowController: NSWindowController {
         panel.setFrameAutosaveName("FloatingNotesPanel")
 
         super.init(window: panel)
+        panel.delegate = self
 
         let content = NoteEditorView(
             store: store,
@@ -61,15 +63,40 @@ final class NotesWindowController: NSWindowController {
     }
 
     func show() {
+        if let frontmostApplication = NSWorkspace.shared.frontmostApplication,
+           frontmostApplication.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            applicationToReactivate = frontmostApplication
+        }
+
         store.reload()
         NSApp.unhide(nil)
         window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func hide() {
+        let wasVisible = window?.isVisible == true
         store.flush()
         window?.orderOut(nil)
+        if wasVisible {
+            restorePreviousApplicationFocus()
+        }
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        hide()
+        return false
+    }
+
+    private func restorePreviousApplicationFocus() {
+        let application = applicationToReactivate
+        applicationToReactivate = nil
+
+        // Let AppKit finish removing the non-activating panel from the key-window chain before
+        // asking the previous app to restore its most recent key window and first responder.
+        DispatchQueue.main.async {
+            guard let application, !application.isTerminated else { return }
+            application.activate(options: [.activateAllWindows])
+        }
     }
 
     private func positionOnRight(_ window: NSWindow) {

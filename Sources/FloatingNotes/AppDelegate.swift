@@ -1,13 +1,20 @@
 import Cocoa
+import Sparkle
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
     private var statusItem: NSStatusItem?
     private var hotKeyManager: HotKeyManager?
     private var notesController: NotesWindowController!
     private var settingsController: SettingsWindowController!
     private var store: NotesStore!
     private let settings = AppSettings.shared
+    private var applicationToReactivate: NSRunningApplication?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         store = NotesStore()
@@ -16,8 +23,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onChangeNotesDirectory: { [weak self] url in
                 try self?.store.changeNotesDirectory(to: url)
             },
+            onCheckForUpdates: { [weak self] in
+                self?.updaterController.checkForUpdates(nil)
+            },
             onClose: { [weak self] in
-                self?.updateActivationPolicy()
+                self?.settingsDidClose()
             }
         )
         notesController = NotesWindowController(
@@ -63,6 +73,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showSettings() {
+        if settingsController.window?.isVisible != true,
+           let frontmostApplication = NSWorkspace.shared.frontmostApplication,
+           frontmostApplication.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            applicationToReactivate = frontmostApplication
+        }
+
         // Accessory apps do not present their main menu. Temporarily become a regular app while
         // Settings is open so every app-menu command remains available even when the Dock icon
         // preference is disabled.
@@ -97,6 +113,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(settings.showDockIcon || settingsAreVisible ? .regular : .accessory)
     }
 
+    private func settingsDidClose() {
+        updateActivationPolicy()
+
+        let application = applicationToReactivate
+        applicationToReactivate = nil
+
+        // Changing from a regular app back to an accessory app is asynchronous. Hand focus back
+        // on the following run-loop turn so the previous app restores its key window as well as
+        // its menu bar.
+        DispatchQueue.main.async {
+            guard let application, !application.isTerminated else {
+                NSApp.deactivate()
+                return
+            }
+
+            if #available(macOS 14.0, *) {
+                NSApp.yieldActivation(to: application)
+                application.activate(
+                    from: NSRunningApplication.current,
+                    options: [.activateAllWindows]
+                )
+            } else {
+                NSApp.deactivate()
+                application.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+            }
+        }
+    }
+
     private func setMenuBarIconVisible(_ isVisible: Bool) {
         if isVisible, statusItem == nil {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -114,6 +158,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(item("Toggle Notes (\(HotKeyManager.displayString))", action: #selector(toggleNotes)))
         menu.addItem(.separator())
         menu.addItem(item("Settings…", action: #selector(showSettings)))
+        menu.addItem(checkForUpdatesItem())
         menu.addItem(item("Reveal Notes Folder", action: #selector(revealFolder)))
         menu.addItem(.separator())
         menu.addItem(item("Quit Floating Notes", action: #selector(quitToBackground), keyEquivalent: "q"))
@@ -133,6 +178,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appMenu = NSMenu()
         appMenu.addItem(NSMenuItem(title: "About Floating Notes", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenu.addItem(checkForUpdatesItem())
         appMenu.addItem(.separator())
         appMenu.addItem(item("Settings…", action: #selector(showSettings), keyEquivalent: ","))
         appMenu.addItem(.separator())
@@ -229,6 +275,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menuItem = NSMenuItem(title: title, action: Selector((action)), keyEquivalent: keyEquivalent)
         menuItem.keyEquivalentModifierMask = modifiers
         menuItem.target = nil
+        return menuItem
+    }
+
+    private func checkForUpdatesItem() -> NSMenuItem {
+        let menuItem = NSMenuItem(
+            title: "Check for Updates…",
+            action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+            keyEquivalent: ""
+        )
+        menuItem.target = updaterController
         return menuItem
     }
 }

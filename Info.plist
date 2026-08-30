@@ -11,12 +11,20 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>1.0.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUAutomaticallyUpdate</key>
+    <false/>
+    <key>SUFeedURL</key>
+    <string>https://github.com/vishalbalaji3/floating-notes/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>biPbaTZM7TtFEsILZ5lfmm6yBtc0UJez4gm0M0WJstU=</string>
 </dict>
 </plist>

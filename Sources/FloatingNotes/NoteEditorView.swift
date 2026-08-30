@@ -20,12 +20,12 @@ struct NoteEditorView: View {
                 PlainTextEditor(
                     text: Binding(get: { store.source }, set: store.updateSource),
                     pendingInsertion: $pendingInsertion,
+                    identity: store.editorIdentity,
                     initialCursorPosition: store.cursorPosition,
                     onCursorChange: store.updateCursor,
                     onShowActions: toggleActionPanel,
                     onShowSettings: onOpenSettings
                 )
-                .id(store.editorIdentity)
                 Divider()
                 if isShowingFormatBar {
                     formattingBar
@@ -104,7 +104,7 @@ struct NoteEditorView: View {
     private var actionPill: some View {
         HStack(spacing: 14) {
             Button { toggleActionPanel() } label: { Image(systemName: "command") }
-            Button { openSwitcher() } label: { Image(systemName: "square.on.square") }
+            Button { toggleSwitcher() } label: { Image(systemName: "square.on.square") }
             Button { store.createNote() } label: { Image(systemName: "plus") }
         }
         .buttonStyle(.plain)
@@ -122,7 +122,7 @@ struct NoteEditorView: View {
                 .keyboardShortcut("k", modifiers: .command)
             Button("", action: onOpenSettings)
                 .keyboardShortcut(",", modifiers: .command)
-            Button("") { openSwitcher() }
+            Button("") { toggleSwitcher() }
                 .keyboardShortcut("p", modifiers: .command)
             Button("") { store.createNote() }
                 .keyboardShortcut("n", modifiers: .command)
@@ -141,7 +141,7 @@ struct NoteEditorView: View {
                 store.createNote()
             },
             EditorAction(systemImage: "square.on.square", title: "Browse Notes", shortcut: ["⌘", "P"]) {
-                openSwitcher()
+                toggleSwitcher()
             },
             EditorAction(systemImage: "folder", title: "Reveal Notes Folder", shortcut: ["⌘", "O"], perform: onOpenFolder),
             EditorAction(systemImage: "gearshape", title: "Settings", shortcut: ["⌘", ","], perform: onOpenSettings),
@@ -160,9 +160,13 @@ struct NoteEditorView: View {
         }
     }
 
-    private func openSwitcher() {
-        isShowingSwitcher = true
-        isShowingActionPanel = false
+    private func toggleSwitcher() {
+        if isShowingSwitcher {
+            isShowingSwitcher = false
+        } else {
+            isShowingSwitcher = true
+            isShowingActionPanel = false
+        }
     }
 
     private var formatToggleButton: some View {

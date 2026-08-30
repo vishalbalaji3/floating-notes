@@ -4,13 +4,19 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     let onChangeNotesDirectory: (URL) throws -> Void
+    let onCheckForUpdates: () -> Void
 
     @State private var notesDirectory: URL
     @State private var errorMessage: String?
 
-    init(settings: AppSettings, onChangeNotesDirectory: @escaping (URL) throws -> Void) {
+    init(
+        settings: AppSettings,
+        onChangeNotesDirectory: @escaping (URL) throws -> Void,
+        onCheckForUpdates: @escaping () -> Void
+    ) {
         self.settings = settings
         self.onChangeNotesDirectory = onChangeNotesDirectory
+        self.onCheckForUpdates = onCheckForUpdates
         _notesDirectory = State(initialValue: NotesRepository.shared.notesDirectory)
     }
 
@@ -22,6 +28,23 @@ struct SettingsView: View {
                 Toggle("Show menu bar icon", isOn: $settings.showMenuBarIcon)
                 Toggle("Show Dock icon", isOn: $settings.showDockIcon)
                 Text("You can hide both icons. Floating Notes keeps running and remains available with \(HotKeyManager.displayString).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Updates")
+                    .font(.headline)
+                HStack {
+                    Button("Check for Updates…", action: onCheckForUpdates)
+                    Spacer()
+                    Text("Version \(versionString)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text("When an update is available, you can review its release notes and install it immediately.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -69,6 +92,10 @@ struct SettingsView: View {
         }
     }
 
+    private var versionString: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+    }
+
     private func chooseDirectory() {
         let panel = NSOpenPanel()
         panel.title = "Choose Notes Folder"
@@ -98,21 +125,27 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     init(
         settings: AppSettings,
         onChangeNotesDirectory: @escaping (URL) throws -> Void,
+        onCheckForUpdates: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
         self.onClose = onClose
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 330),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 445),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
         window.title = "Floating Notes Settings"
         window.isReleasedWhenClosed = false
+        window.contentMinSize = NSSize(width: 520, height: 445)
         window.center()
         window.setFrameAutosaveName("FloatingNotesSettings")
         window.contentView = NSHostingView(
-            rootView: SettingsView(settings: settings, onChangeNotesDirectory: onChangeNotesDirectory)
+            rootView: SettingsView(
+                settings: settings,
+                onChangeNotesDirectory: onChangeNotesDirectory,
+                onCheckForUpdates: onCheckForUpdates
+            )
         )
         super.init(window: window)
         window.delegate = self
@@ -130,6 +163,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        onClose()
+        // AppKit sends windowWillClose before isVisible changes. Defer the activation-policy
+        // update so a hidden-Dock preference can return the app to accessory mode correctly.
+        DispatchQueue.main.async { [onClose] in
+            onClose()
+        }
     }
 }

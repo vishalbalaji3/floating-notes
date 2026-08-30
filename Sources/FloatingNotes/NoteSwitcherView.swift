@@ -56,6 +56,7 @@ struct NoteSwitcherView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .onAppear(perform: selectActiveNote)
         .onChange(of: store.searchQuery) { _ in selection = 0 }
     }
 
@@ -112,6 +113,15 @@ struct NoteSwitcherView: View {
     private func moveSelection(_ delta: Int) {
         guard !store.searchResults.isEmpty else { return }
         selection = (selection + delta + store.searchResults.count) % store.searchResults.count
+    }
+
+    private func selectActiveNote() {
+        guard let activeID = store.activeID,
+              let activeIndex = store.searchResults.firstIndex(where: { $0.id == activeID }) else {
+            selection = 0
+            return
+        }
+        selection = activeIndex
     }
 
     private func activateSelection() {

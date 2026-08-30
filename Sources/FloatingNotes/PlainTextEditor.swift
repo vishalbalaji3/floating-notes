@@ -47,6 +47,9 @@ final class MarkdownWebView: WKWebView {
 struct PlainTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var pendingInsertion: PendingMarkdownInsertion?
+    /// Changes whenever a different note is loaded; the coordinator swaps the editor's content
+    /// in place so the web view (and its loaded CodeMirror page) survives note switches.
+    var identity: UUID
     var initialCursorPosition: Int
     var onCursorChange: (Int) -> Void
     var onShowActions: () -> Void
@@ -89,7 +92,11 @@ struct PlainTextEditor: NSViewRepresentable {
         context.coordinator.parent = self
         guard context.coordinator.isReady else { return }
 
-        if context.coordinator.editorText != text {
+        if context.coordinator.displayedIdentity != identity {
+            context.coordinator.displayedIdentity = identity
+            context.coordinator.setContent(text, cursor: initialCursorPosition)
+            context.coordinator.focusEditor()
+        } else if context.coordinator.editorText != text {
             context.coordinator.setContent(text, cursor: initialCursorPosition)
         }
         context.coordinator.applyPendingInsertionIfNeeded()
@@ -105,6 +112,7 @@ struct PlainTextEditor: NSViewRepresentable {
         weak var webView: MarkdownWebView?
         var isReady = false
         var editorText = ""
+        var displayedIdentity: UUID?
         private var lastAppliedInsertionID: UUID?
 
         init(_ parent: PlainTextEditor) {
@@ -122,11 +130,10 @@ struct PlainTextEditor: NSViewRepresentable {
             case "ready":
                 isReady = true
                 webView?.updateEditorAppearance()
+                displayedIdentity = parent.identity
                 setContent(parent.text, cursor: parent.initialCursorPosition)
                 applyPendingInsertionIfNeeded()
-                DispatchQueue.main.async { [weak self] in
-                    self?.webView?.evaluateJavaScript("window.focusEditor()")
-                }
+                focusEditor()
 
             case "contentChanged":
                 guard let content = body["content"] as? String else { return }
@@ -166,6 +173,16 @@ struct PlainTextEditor: NSViewRepresentable {
             let encoded = MarkdownWebView.javascriptLiteral(content)
             let clamped = min(max(0, cursor), (content as NSString).length)
             webView.evaluateJavaScript("window.setContent(\(encoded), \(clamped))")
+        }
+
+        /// Wait until the button/menu action that selected the note has finished, then move both
+        /// AppKit and DOM focus into CodeMirror so typing can begin immediately.
+        func focusEditor() {
+            DispatchQueue.main.async { [weak self] in
+                guard let webView = self?.webView else { return }
+                webView.window?.makeFirstResponder(webView)
+                webView.evaluateJavaScript("window.focusEditor()")
+            }
         }
 
         func applyPendingInsertionIfNeeded() {

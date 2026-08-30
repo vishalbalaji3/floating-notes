@@ -20,6 +20,7 @@ Each note is a plain `.md` file — no database or frontmatter. The default fold
 - Switcher searches both titles and note bodies
 - Filename collisions append " 2", " 3", etc. (case- and accent-insensitive)
 - Settings (**⌘,**) for menu-bar visibility and selecting, revealing, or resetting the notes folder
+- Signed in-app updates with **Check for Updates…** in Settings, the app menu, and the menu-bar menu
 
 ## Build & run
 
@@ -30,7 +31,35 @@ Requires Xcode's command-line tools (for `swift build` and `codesign`) and Node.
 open "build/Floating Notes.app"
 ```
 
-`build.sh` bundles the web editor, compiles a release binary, assembles it into `build/Floating Notes.app`, and ad-hoc code-signs it.
+`build.sh` bundles the web editor, compiles a universal Apple silicon/Intel release binary, assembles it into `build/Floating Notes.app`, and ad-hoc code-signs it.
+
+## Publish an update
+
+The app uses [Sparkle](https://sparkle-project.org/) and GitHub Releases. Update archives are signed with a dedicated Ed25519 key, and the matching public key is embedded in the app. The private key is stored in the local macOS Keychain and in the repository's encrypted `SPARKLE_PRIVATE_KEY` Actions secret.
+
+Update behavior:
+
+- Sparkle checks the public `appcast.xml` feed automatically, at most once per day.
+- **Check for Updates…** starts an immediate user-initiated check.
+- If a newer build is available, Sparkle verifies its signature before offering to install and relaunch.
+- Automatic installation is disabled; the user always chooses when to install.
+
+To publish, push a new semantic-version tag:
+
+```bash
+git switch main
+git pull --ff-only
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+The release workflow takes the display version from the tag, uses the GitHub Actions run number as Sparkle's monotonically increasing build number, builds the universal app, signs the update archive, generates `appcast.xml`, and publishes both files to a GitHub Release.
+
+Version tags must use `vMAJOR.MINOR.PATCH`, must increase with every release, and should only point to commits already pushed to `main`. Do not replace the Sparkle key without following Sparkle's key-rotation procedure: existing installs trust the public key currently in `Info.plist`.
+
+The first build containing Sparkle is a one-time manual install over older copies. All later releases can update in-app. For public distribution outside your own Macs, replace the workflow's ad-hoc app signature with a Developer ID signature and Apple notarization so Gatekeeper trusts fresh downloads.
+
+See [Release and updater operations](docs/RELEASING.md) for the complete release checklist, signing-key recovery, verification commands, and troubleshooting.
 
 ## Run at login
 
@@ -85,6 +114,9 @@ floating-notes/
 │   ├── Resources/Editor/          # Editor HTML and generated JavaScript bundle
 │   └── NoteSwitcherView.swift     # Search/select/trash list (SwiftUI)
 ├── editor-web/                    # CodeMirror live-preview source and build config
+├── docs/RELEASING.md              # Release, signing-key, and updater runbook
+├── .github/workflows/release.yml  # Tag-driven GitHub Release publisher
+├── AGENTS.md                      # Repository guidance for coding agents
 ├── Info.plist
 ├── build.sh
 └── Package.swift
