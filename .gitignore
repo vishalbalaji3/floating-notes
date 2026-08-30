@@ -1,0 +1,6 @@
+.build/
+build/
+.swiftpm/
+.DS_Store
+editor-web/node_modules/
+Sources/FloatingNotes/Resources/Editor/editor.bundle.js

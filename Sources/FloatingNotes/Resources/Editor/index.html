@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Floating Notes Editor</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --editor-text: #1c1c1e;
+      --editor-secondary: rgba(60, 60, 67, 0.68);
+      --editor-tertiary: rgba(60, 60, 67, 0.42);
+      --editor-link: #0066cc;
+      --editor-panel: #f2f2f7;
+    }
+    :root.theme-dark {
+      --editor-text: #f2f2f7;
+      --editor-secondary: rgba(235, 235, 245, 0.68);
+      --editor-tertiary: rgba(235, 235, 245, 0.42);
+      --editor-link: #64a8ff;
+      --editor-panel: #2c2c2e;
+    }
+    * { box-sizing: border-box; }
+    html, body, #editor { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+  </style>
+</head>
+<body>
+  <div id="editor"></div>
+  <script src="editor.bundle.js"></script>
+</body>
+</html>
