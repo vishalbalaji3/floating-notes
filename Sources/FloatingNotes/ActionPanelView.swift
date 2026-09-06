@@ -52,7 +52,7 @@ struct ActionPanelView: View {
                 .padding(6)
             }
         }
-        .frame(width: 320)
+        .frame(maxWidth: 360)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.08)))
         .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
@@ -73,7 +73,7 @@ struct ActionPanelView: View {
         .foregroundStyle(action.isEnabled ? .primary : .tertiary)
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(isSelected ? Color.accentColor.opacity(0.25) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(isSelected ? Color.primary.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture { activate(action) }
     }

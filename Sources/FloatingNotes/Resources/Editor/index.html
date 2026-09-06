@@ -22,12 +22,30 @@
       --editor-quote: #ff5d63;
       --editor-panel: #2c2c2e;
     }
+    dialog { width: min(300px, calc(100vw - 32px)); padding: 18px; border: 1px solid #7776; border-radius: 16px; background: var(--editor-panel); color: var(--editor-text); font: 13px -apple-system, sans-serif; box-shadow: 0 12px 40px #0005; }
+    dialog::backdrop { background: #0003; }
+    dialog form, dialog label { display: grid; gap: 8px; }
+    dialog form { gap: 14px; }
+    dialog input { width: 100%; padding: 8px; border: 1px solid #7776; border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+    dialog .actions { display: flex; justify-content: flex-end; gap: 8px; }
+    dialog button { padding: 6px 12px; border: 1px solid #7776; border-radius: 6px; font: inherit; }
     * { box-sizing: border-box; }
     html, body, #editor { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
   </style>
 </head>
 <body>
   <div id="editor"></div>
+  <dialog id="link-dialog" aria-label="Insert Link">
+    <form>
+      <strong>Insert Link</strong>
+      <label>Text<input id="link-label" autocomplete="off"></label>
+      <label>URL<input id="link-url" type="url" required placeholder="https://example.com" autocomplete="off"></label>
+      <div class="actions">
+        <button type="button" onclick="this.closest('dialog').close(); window.focusEditor()">Cancel</button>
+        <button type="submit">Insert Link</button>
+      </div>
+    </form>
+  </dialog>
   <script src="editor.bundle.js"></script>
 </body>
 </html>

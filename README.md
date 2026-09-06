@@ -9,7 +9,7 @@ Each note is a plain `.md` file — no database or frontmatter. The default fold
 - **⌥.** toggles the panel from anywhere (registered via Carbon's `RegisterEventHotKey`, so no Accessibility permission prompt)
 - Standard macOS app behavior: Dock/⌘Tab presence and Application, File, Edit, Format, and Window menus
 - Independently hide the Dock icon and menu-bar icon; the app keeps running and remains available through **⌥.**
-- CodeMirror 6 editor with Obsidian-style live preview: Markdown markers unfold around the cursor
+- CodeMirror 6 editor with persistent formatted text: Markdown markers stay hidden while editing; open the bottom-right text tools to apply formatting
 - GFM support for headings, tables, strikethrough, links, fenced code, lists, and interactive task checkboxes
 - Bullet lists use `*` in Markdown, preview as dots, and support Tab/Shift-Tab nesting with hanging indentation
 - Autosaves ~300ms after you stop typing; always flushes immediately on hide or note switch

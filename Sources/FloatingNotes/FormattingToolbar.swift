@@ -30,7 +30,7 @@ struct FormattingToolbar: View {
     var onInsert: (MarkdownInsertion) -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Menu {
                 Button("Heading 1") { onInsert(.heading(1)) }
                     .keyboardShortcut("1", modifiers: [.command, .option])
@@ -101,8 +101,9 @@ struct FormattingToolbar: View {
         .menuStyle(.borderlessButton)
         .font(.system(size: 13))
         .fixedSize()
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(.thinMaterial, in: Capsule())
+        .background(.black.opacity(0.18), in: Capsule())
+        .overlay(Capsule().strokeBorder(.primary.opacity(0.10)))
     }
 }

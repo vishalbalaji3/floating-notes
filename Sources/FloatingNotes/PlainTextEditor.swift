@@ -43,7 +43,7 @@ final class MarkdownWebView: WKWebView {
 }
 
 /// A CodeMirror 6 editor hosted in WKWebView. Markdown remains the source of truth on disk, but
-/// formatting is previewed in place and unfolds back to source whenever the cursor enters it.
+/// formatting stays rendered in place while editing, with commands supplied by the text toolbar.
 struct PlainTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var pendingInsertion: PendingMarkdownInsertion?

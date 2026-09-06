@@ -6,6 +6,8 @@ struct NoteEditorView: View {
     var onOpenSettings: () -> Void
     var onHide: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     @State private var isShowingSwitcher = false
     @State private var isShowingActionPanel = false
     @State private var isShowingFormatBar = false
@@ -16,7 +18,6 @@ struct NoteEditorView: View {
         ZStack {
             VStack(spacing: 0) {
                 header
-                Divider()
                 PlainTextEditor(
                     text: Binding(get: { store.source }, set: store.updateSource),
                     pendingInsertion: $pendingInsertion,
@@ -26,23 +27,13 @@ struct NoteEditorView: View {
                     onShowActions: toggleActionPanel,
                     onShowSettings: onOpenSettings
                 )
-                Divider()
-                if isShowingFormatBar {
-                    formattingBar
-                } else {
-                    footer
-                }
+                bottomBar
             }
             .frame(minWidth: 360, minHeight: 240)
-            .background(.regularMaterial)
-            .overlay(alignment: .bottomTrailing) {
-                if !isShowingFormatBar {
-                    formatToggleButton.padding(12)
-                }
-            }
+            .background(colorScheme == .dark ? Color(white: 0.22) : Color(white: 0.97))
 
             if isShowingSwitcher || isShowingActionPanel {
-                Color.black.opacity(0.35)
+                Color.black.opacity(0.08)
                     .onTapGesture {
                         isShowingSwitcher = false
                         isShowingActionPanel = false
@@ -51,19 +42,22 @@ struct NoteEditorView: View {
             }
             if isShowingSwitcher {
                 NoteSwitcherView(store: store, isPresented: $isShowingSwitcher)
-                    .padding(.top, 44)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 88)
                     .frame(maxHeight: .infinity, alignment: .top)
                     .transition(.opacity)
             }
             if isShowingActionPanel {
                 ActionPanelView(isPresented: $isShowingActionPanel, actions: editorActions)
-                    .padding(.top, 44)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 88)
                     .frame(maxHeight: .infinity, alignment: .top)
                     .transition(.opacity)
             }
 
             hiddenShortcuts
         }
+        .ignoresSafeArea(.container, edges: .top)
         .animation(.easeOut(duration: 0.15), value: isShowingSwitcher)
         .animation(.easeOut(duration: 0.15), value: isShowingActionPanel)
         .animation(.easeOut(duration: 0.15), value: isShowingFormatBar)
@@ -90,28 +84,42 @@ struct NoteEditorView: View {
     private var header: some View {
         ZStack {
             Text(store.activeTitle)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .padding(.horizontal, 100)
+                .help(store.activeTitle)
             HStack {
+                HeaderWindowControls()
+                    .frame(width: 60, height: 14)
                 Spacer()
                 actionPill
             }
+            .padding(.leading, 19)
+            .padding(.trailing, 8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .frame(height: 52)
     }
 
     private var actionPill: some View {
-        HStack(spacing: 14) {
-            Button { toggleActionPanel() } label: { Image(systemName: "command") }
-            Button { toggleSwitcher() } label: { Image(systemName: "square.on.square") }
-            Button { store.createNote() } label: { Image(systemName: "plus") }
+        HStack(spacing: 8) {
+            Button { toggleActionPanel() } label: { Image(systemName: "command").frame(width: 20, height: 20) }
+                .help("Search Actions (⌘K)")
+                .accessibilityLabel("Search Actions")
+            Button { toggleSwitcher() } label: { Image(systemName: "rectangle.portrait.on.rectangle.portrait.angled").frame(width: 20, height: 20) }
+                .help("Browse Notes (⌘P)")
+                .accessibilityLabel("Browse Notes")
+            Button { store.createNote() } label: { Image(systemName: "plus").frame(width: 20, height: 20) }
+                .help("New Note (⌘N)")
+                .accessibilityLabel("New Note")
         }
         .buttonStyle(.plain)
-        .font(.system(size: 12, weight: .medium))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.thinMaterial, in: Capsule())
+        .font(.system(size: 16, weight: .medium))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .background(.black.opacity(0.18), in: Capsule())
+        .overlay(Capsule().strokeBorder(.primary.opacity(0.10)))
     }
 
     /// Keyboard shortcuts for actions that no longer have a visible header button — they live in
@@ -140,7 +148,7 @@ struct NoteEditorView: View {
             EditorAction(systemImage: "plus", title: "New Note", shortcut: ["⌘", "N"]) {
                 store.createNote()
             },
-            EditorAction(systemImage: "square.on.square", title: "Browse Notes", shortcut: ["⌘", "P"]) {
+            EditorAction(systemImage: "rectangle.portrait.on.rectangle.portrait.angled", title: "Browse Notes", shortcut: ["⌘", "P"]) {
                 toggleSwitcher()
             },
             EditorAction(systemImage: "folder", title: "Reveal Notes Folder", shortcut: ["⌘", "O"], perform: onOpenFolder),
@@ -169,45 +177,78 @@ struct NoteEditorView: View {
         }
     }
 
-    private var formatToggleButton: some View {
-        Button {
-            isShowingFormatBar = true
-        } label: {
-            Text("T")
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 26, height: 26)
-                .background(.thinMaterial, in: Circle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var formattingBar: some View {
-        HStack(spacing: 8) {
-            FormattingToolbar { insertion in
-                pendingInsertion = PendingMarkdownInsertion(action: insertion)
+    private var bottomBar: some View {
+        ZStack {
+            if isShowingFormatBar {
+                FormattingToolbar { insertion in
+                    pendingInsertion = PendingMarkdownInsertion(action: insertion)
+                }
+                .padding(.horizontal, 44)
+                .transition(.opacity)
+            } else {
+                Text("\(store.source.count) characters")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.tertiary)
             }
-            Spacer()
-            Button {
-                isShowingFormatBar = false
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 26, height: 26)
-                    .background(.thinMaterial, in: Circle())
+            HStack {
+                Spacer()
+                Button {
+                    isShowingFormatBar.toggle()
+                } label: {
+                    Group {
+                        if isShowingFormatBar {
+                            Image(systemName: "xmark.circle.fill")
+                        } else {
+                            Text("T").font(.system(size: 17, weight: .semibold, design: .serif))
+                        }
+                    }
+                    .frame(width: 32, height: 32)
+                    .background(.black.opacity(0.18), in: Circle())
+                    .overlay(Circle().strokeBorder(.primary.opacity(0.10)))
+                }
+                .buttonStyle(.plain)
+                .help(isShowingFormatBar ? "Hide Formatting" : "Text Formatting")
+                .accessibilityLabel(isShowingFormatBar ? "Hide Formatting" : "Text Formatting")
             }
-            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .transition(.opacity)
+        .frame(height: 44)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
     }
+}
 
-    private var footer: some View {
-        Text("\(store.source.count) characters")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+/// These are independent standard AppKit buttons, not the title bar's managed instances.
+/// AppKit rewrites the frames of its own buttons during resizing even after reparenting.
+private struct HeaderWindowControls: NSViewRepresentable {
+    func makeNSView(context: Context) -> WindowControlsView { WindowControlsView() }
+    func updateNSView(_ nsView: WindowControlsView, context: Context) {}
+
+    final class WindowControlsView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            subviews.forEach { $0.removeFromSuperview() }
+            let controls: [(NSWindow.ButtonType, Selector, Bool)] = [
+                (.closeButton, #selector(NSWindow.performClose(_:)), window.styleMask.contains(.closable)),
+                (.miniaturizeButton, #selector(NSWindow.performMiniaturize(_:)), window.styleMask.contains(.miniaturizable)),
+                (.zoomButton, #selector(NSWindow.performZoom(_:)), window.styleMask.contains(.resizable)),
+            ]
+            for (kind, action, enabled) in controls {
+                guard let button = NSWindow.standardWindowButton(kind, for: window.styleMask) else { continue }
+                button.target = window
+                button.action = action
+                button.isEnabled = enabled
+                button.autoresizingMask = []
+                addSubview(button)
+            }
+            needsLayout = true
+        }
+
+        override func layout() {
+            super.layout()
+            for (index, button) in subviews.enumerated() {
+                button.setFrameOrigin(NSPoint(x: CGFloat(index) * 23, y: (bounds.height - button.frame.height) / 2))
+            }
+        }
     }
 }

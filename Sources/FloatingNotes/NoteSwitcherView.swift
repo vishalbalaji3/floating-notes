@@ -42,7 +42,7 @@ struct NoteSwitcherView: View {
                 .padding(.bottom, 6)
             }
         }
-        .frame(width: 360)
+        .frame(maxWidth: 360)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.08)))
         .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
@@ -80,7 +80,7 @@ struct NoteSwitcherView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(isSelected ? Color.accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(isSelected ? Color.primary.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture {
             store.load(note.id)

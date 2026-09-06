@@ -20,13 +20,19 @@ final class NotesWindowController: NSWindowController, NSWindowDelegate {
     init(store: NotesStore, onOpenSettings: @escaping () -> Void) {
         self.store = store
         let panel = NotesPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 700),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
+        // The SwiftUI header supplies independent standard buttons. Leave AppKit's
+        // managed title-bar controls in place but hidden so resizing cannot move ours.
+        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            panel.standardWindowButton(kind)?.isHidden = true
+        }
+        panel.minSize = NSSize(width: 360, height: 240)
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]

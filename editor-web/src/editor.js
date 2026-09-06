@@ -81,11 +81,6 @@ function liveLinkDecoration(rawURL) {
 function buildPreviewDecorations(view) {
   const decorations = [];
   const lineClasses = new Set();
-  const selection = view.state.selection.main;
-  const cursorLine = view.state.doc.lineAt(selection.head).number;
-
-  const cursorInside = (from, to) => selection.from >= from && selection.to <= to;
-  const cursorOnLine = (position) => view.state.doc.lineAt(position).number === cursorLine;
   const addLine = (position, className, attributes = {}) => {
     const lineStart = view.state.doc.lineAt(position).from;
     const key = `${lineStart}:${className}:${JSON.stringify(attributes)}`;
@@ -108,16 +103,12 @@ function buildPreviewDecorations(view) {
     );
   };
 
-  addLine(view.state.doc.line(cursorLine).from, 'cm-active-markdown-line');
-
   for (const visible of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from: visible.from,
       to: visible.to,
       enter(node) {
         const parent = node.node.parent;
-        const parentFrom = parent?.from ?? node.from;
-        const parentTo = parent?.to ?? node.to;
 
         switch (node.name) {
           case 'ATXHeading1': addLine(node.from, 'cm-heading cm-heading-1'); break;
@@ -140,22 +131,16 @@ function buildPreviewDecorations(view) {
             decorations.push(Decoration.mark({ class: 'cm-live-inline-code' }).range(node.from, node.to));
             break;
 
-          case 'HeaderMark':
-            if (!cursorOnLine(node.from)) {
-              decorations.push(Decoration.replace({}).range(node.from, node.to));
-            } else {
-              decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
-            }
+          case 'HeaderMark': {
+            const space = view.state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
+            decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to + space));
             break;
+          }
 
           case 'EmphasisMark':
           case 'StrikethroughMark':
           case 'CodeMark':
-            if (!cursorInside(parentFrom, parentTo)) {
-              decorations.push(Decoration.replace({}).range(node.from, node.to));
-            } else {
-              decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
-            }
+            decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to));
             break;
 
           case 'Link':
@@ -166,22 +151,14 @@ function buildPreviewDecorations(view) {
             }
             break;
           case 'LinkMark':
-            if (!cursorInside(parentFrom, parentTo)) {
-              decorations.push(Decoration.replace({}).range(node.from, node.to));
-            } else {
-              decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
-            }
+            decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to));
             break;
           case 'URL':
             // A URL node is the destination markup inside [label](url), but it is
             // also the visible content of bare URLs and <autolinks>. Only hide it
             // for labeled links whose readable text is rendered separately.
             if (parent?.name === 'Link') {
-              if (!cursorInside(parentFrom, parentTo)) {
-                decorations.push(Decoration.replace({}).range(node.from, node.to));
-              } else {
-                decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
-              }
+              decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to));
             } else {
               const rawURL = view.state.sliceDoc(node.from, node.to);
               decorations.push(Decoration.mark(liveLinkDecoration(rawURL)).range(node.from, node.to));
@@ -201,12 +178,8 @@ function buildPreviewDecorations(view) {
             break;
           }
           case 'QuoteMark': {
-            if (cursorOnLine(node.from)) {
-              decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(node.from, node.to));
-            } else {
-              const trailingSpace = view.state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
-              decorations.push(Decoration.replace({}).range(node.from, node.to + trailingSpace));
-            }
+            const trailingSpace = view.state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
+            decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to + trailingSpace));
             break;
           }
 
@@ -219,7 +192,7 @@ function buildPreviewDecorations(view) {
             break;
           }
           case 'CodeInfo':
-            decorations.push(Decoration.mark({ class: 'cm-code-language' }).range(node.from, node.to));
+            decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to));
             break;
           case 'ListMark': {
             if (/^ \[[ xX]\]/.test(view.state.sliceDoc(node.to, node.to + 4))) break;
@@ -230,25 +203,12 @@ function buildPreviewDecorations(view) {
             const depth = listDepth(node.node);
             const unordered = /^[-+*]$/.test(marker);
 
-            if (cursorOnLine(node.from)) {
-              const normalizeActiveLine = canNormalizeIndentation && selection.head >= node.from;
-              if (normalizeActiveLine) {
-                if (prefix.length) decorations.push(Decoration.replace({}).range(line.from, node.from));
-                addListLine(line, depth);
-              }
-              decorations.push(
-                Decoration.mark({
-                  class: unordered ? 'cm-list-marker cm-list-marker-unordered' : 'cm-list-marker',
-                }).range(node.from, node.to)
-              );
-              break;
-            }
-
             if (canNormalizeIndentation) addListLine(line, depth);
             const bulletDepth = Math.min(2, depth);
             const bulletLabels = ['•', '◦', '▪'];
             decorations.push(
               Decoration.replace({
+                atomic: true,
                 widget: new ListMarkerWidget(
                   unordered ? bulletLabels[bulletDepth] : marker,
                   unordered
@@ -265,20 +225,12 @@ function buildPreviewDecorations(view) {
             const isListTask = /^\s*[-+*]\s+$/.test(prefix);
             const fullFrom = isListTask ? line.from : node.from;
             if (isListTask) {
-              const markerStart = line.from + (prefix.match(/^\s*/)?.[0].length ?? 0);
-              if (cursorOnLine(node.from)) {
-                if (selection.head >= markerStart && markerStart > line.from) {
-                  decorations.push(Decoration.replace({}).range(line.from, markerStart));
-                  addListLine(line, listDepth(node.node));
-                }
-                break;
-              }
               addListLine(line, listDepth(node.node));
             }
-            if (cursorOnLine(node.from)) break;
             const marker = view.state.sliceDoc(node.from, node.to);
             decorations.push(
               Decoration.replace({
+                atomic: true,
                 widget: new CheckboxWidget(/[xX]/.test(marker), node.from),
               }).range(fullFrom, node.to)
             );
@@ -301,7 +253,7 @@ function buildPreviewDecorations(view) {
   }
 
   // Markdown has no standard underline syntax. Floating Notes stores underline as HTML and
-  // previews <u>text</u> in the same cursor-aware style as other inline formatting.
+  // renders <u>text</u> without revealing its markup when the cursor moves.
   const source = view.state.doc.toString();
   const underlinePattern = /<u>([^\n]*?)<\/u>/gi;
   let match;
@@ -310,14 +262,9 @@ function buildPreviewDecorations(view) {
     const to = from + match[0].length;
     const openingEnd = from + 3;
     const closingStart = to - 4;
-    decorations.push(Decoration.mark({ class: 'cm-live-underline' }).range(openingEnd, closingStart));
-    if (!cursorInside(from, to)) {
-      decorations.push(Decoration.replace({}).range(from, openingEnd));
-      decorations.push(Decoration.replace({}).range(closingStart, to));
-    } else {
-      decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(from, openingEnd));
-      decorations.push(Decoration.mark({ class: 'cm-markdown-marker' }).range(closingStart, to));
-    }
+    if (openingEnd < closingStart) decorations.push(Decoration.mark({ class: 'cm-live-underline' }).range(openingEnd, closingStart));
+    decorations.push(Decoration.replace({ atomic: true }).range(from, openingEnd));
+    decorations.push(Decoration.replace({ atomic: true }).range(closingStart, to));
   }
 
   return Decoration.set(decorations, true);
@@ -326,11 +273,18 @@ function buildPreviewDecorations(view) {
 const previewPlugin = ViewPlugin.fromClass(class {
   constructor(view) { this.decorations = buildPreviewDecorations(view); }
   update(update) {
-    if (update.docChanged || update.selectionSet || update.viewportChanged) {
+    if (update.docChanged || update.viewportChanged) {
       this.decorations = buildPreviewDecorations(update.view);
     }
   }
-}, { decorations: (value) => value.decorations });
+}, {
+  decorations: (value) => value.decorations,
+  // Skip hidden syntax during keyboard navigation, but leave formatted text editable.
+  provide: (plugin) => EditorView.atomicRanges.of((view) =>
+    view.plugin(plugin)?.decorations.update({ filter: (_from, _to, value) => value.spec.atomic === true })
+      ?? Decoration.none
+  ),
+});
 
 const openLinkHandler = EditorView.domEventHandlers({
   mousedown(event, view) {
@@ -367,8 +321,8 @@ function wrapSelection(view, opening, closing) {
     });
   } else if (from === to) {
     view.dispatch({
-      changes: { from, insert: opening + closing },
-      selection: EditorSelection.cursor(from + opening.length),
+      changes: { from, insert: opening + 'text' + closing },
+      selection: EditorSelection.range(from + opening.length, from + opening.length + 4),
     });
   } else {
     view.dispatch({
@@ -398,7 +352,7 @@ function toggleLinePrefix(view, prefix, pattern) {
   const changes = [];
 
   lines.forEach((line, index) => {
-    if (!line.text.trim()) return;
+    if (!line.text.trim() && remove) return;
     const match = line.text.match(pattern);
     if (remove && match) {
       changes.push({ from: line.from, to: line.from + match[0].length, insert: '' });
@@ -408,7 +362,10 @@ function toggleLinePrefix(view, prefix, pattern) {
     }
   });
 
-  if (changes.length) view.dispatch({ changes });
+  if (changes.length) {
+    const changeSet = view.state.changes(changes);
+    view.dispatch({ changes: changeSet, selection: view.state.selection.map(changeSet, 1) });
+  }
   view.focus();
 }
 
@@ -424,7 +381,6 @@ function applyFormatting(action, level = 1) {
       const wanted = `${'#'.repeat(Math.min(6, Math.max(1, level)))} `;
       const changes = [];
       selectedLines(editor).forEach((line) => {
-        if (!line.text.trim()) return;
         const existing = line.text.match(/^#{1,6}\s+/)?.[0];
         if (existing === wanted) {
           changes.push({ from: line.from, to: line.from + existing.length, insert: '' });
@@ -434,7 +390,10 @@ function applyFormatting(action, level = 1) {
           changes.push({ from: line.from, insert: wanted });
         }
       });
-      if (changes.length) editor.dispatch({ changes });
+      if (changes.length) {
+        const changeSet = editor.state.changes(changes);
+        editor.dispatch({ changes: changeSet, selection: editor.state.selection.map(changeSet, 1) });
+      }
       editor.focus();
       break;
     }
@@ -444,14 +403,26 @@ function applyFormatting(action, level = 1) {
     case 'checklist': toggleLinePrefix(editor, '* [ ] ', /^[-+*]\s\[[ xX]\]\s/); break;
     case 'link': {
       const range = editor.state.selection.main;
-      const selected = editor.state.sliceDoc(range.from, range.to) || 'text';
-      const replacement = `[${selected}](url)`;
-      const urlFrom = range.from + selected.length + 3;
-      editor.dispatch({
-        changes: { from: range.from, to: range.to, insert: replacement },
-        selection: EditorSelection.range(urlFrom, urlFrom + 3),
-      });
-      editor.focus();
+      const dialog = document.getElementById('link-dialog');
+      const label = document.getElementById('link-label');
+      const url = document.getElementById('link-url');
+      label.value = editor.state.sliceDoc(range.from, range.to);
+      url.value = '';
+      dialog.querySelector('form').onsubmit = (event) => {
+        event.preventDefault();
+        if (!url.reportValidity()) return;
+        const text = (label.value || url.value).replace(/[\[\]\\]/g, '\\$&');
+        const destination = url.value.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
+        const replacement = `[${text}](${destination})`;
+        dialog.close();
+        editor.dispatch({
+          changes: { from: range.from, to: range.to, insert: replacement },
+          selection: EditorSelection.cursor(range.from + replacement.length),
+        });
+        editor.focus();
+      };
+      dialog.showModal();
+      url.focus();
       break;
     }
     case 'codeBlock': {
@@ -503,15 +474,15 @@ const theme = EditorView.theme({
   },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { overflow: 'auto', fontFamily: 'inherit' },
-  '.cm-content': { minHeight: '100%', padding: '14px 16px 56px', caretColor: '#3b82f6' },
+  '.cm-content': { minHeight: '100%', padding: '18px 24px 24px', caretColor: 'var(--editor-link)' },
   '.cm-content:empty::before': {
     content: 'attr(data-placeholder)',
     color: 'var(--editor-tertiary)',
     opacity: '0.65',
     pointerEvents: 'none',
   },
-  '.cm-line': { padding: '1px 0', lineHeight: '1.55' },
-  '.cm-cursor': { borderLeftColor: '#3b82f6', borderLeftWidth: '2px' },
+  '.cm-line': { padding: '3px 0', lineHeight: '1.4' },
+  '.cm-cursor': { borderLeftColor: 'var(--editor-link)', borderLeftWidth: '2px' },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'rgba(55, 132, 255, 0.24)' },
   '.cm-gutters': { display: 'none' },
   '.cm-heading': { fontWeight: '700', lineHeight: '1.3', paddingTop: '5px', paddingBottom: '2px' },
@@ -629,6 +600,7 @@ function createEditor() {
 
 window.setContent = (content, cursor = 0) => {
   if (!editor) return;
+  document.getElementById('link-dialog').close();
   const safeCursor = Math.max(0, Math.min(cursor, content.length));
   suppressChanges = true;
   editor.dispatch({
