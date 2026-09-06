@@ -301,6 +301,37 @@ const previewPlugin = ViewPlugin.fromClass(class {
   ),
 });
 
+function markerAwareLineStart(view, line) {
+  const plugin = view.plugin(previewPlugin);
+  if (!plugin) return line.from;
+  let contentStart = line.from;
+  plugin.decorations.between(line.from, line.from, (from, to, deco) => {
+    if (deco.spec.atomic && from <= line.from && to > contentStart) contentStart = to;
+  });
+  return contentStart;
+}
+
+// Headings, list markers, and blockquote markers are hidden behind atomic
+// decorations, so CodeMirror's built-in smart-home only sees them as
+// ordinary (non-whitespace) characters and stops right before them. Land on
+// the real, visible start of the line instead, toggling to the true line
+// start on a second press like normal smart-home does for indentation.
+function smartLineStart(view) {
+  const { state } = view;
+  const sel = state.selection.main;
+  const line = state.doc.lineAt(sel.head);
+  const contentStart = markerAwareLineStart(view, line);
+  if (contentStart === line.from) return false;
+  const target = sel.head === contentStart ? line.from : contentStart;
+  view.dispatch({ selection: EditorSelection.cursor(target), userEvent: 'select', scrollIntoView: true });
+  return true;
+}
+
+const lineStartKeymap = Prec.highest(keymap.of([
+  { key: 'Home', run: smartLineStart },
+  { mac: 'Cmd-ArrowLeft', run: smartLineStart },
+]));
+
 const openLinkHandler = EditorView.domEventHandlers({
   mousedown(event, view) {
     if (event.button !== 0) return false;
@@ -595,6 +626,7 @@ function createEditor() {
       history(),
       keymap.of([...formattingKeymap, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
       listExitKeymap,
+      lineStartKeymap,
       markdown({ extensions: GFM }),
       indentUnit.of('  '),
       syntaxHighlighting(highlightStyle),
