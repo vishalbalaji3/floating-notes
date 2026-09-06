@@ -111,12 +111,17 @@ function buildPreviewDecorations(view) {
         const parent = node.node.parent;
 
         switch (node.name) {
-          case 'ATXHeading1': addLine(node.from, 'cm-heading cm-heading-1'); break;
-          case 'ATXHeading2': addLine(node.from, 'cm-heading cm-heading-2'); break;
-          case 'ATXHeading3': addLine(node.from, 'cm-heading cm-heading-3'); break;
-          case 'ATXHeading4': addLine(node.from, 'cm-heading cm-heading-4'); break;
-          case 'ATXHeading5': addLine(node.from, 'cm-heading cm-heading-5'); break;
-          case 'ATXHeading6': addLine(node.from, 'cm-heading cm-heading-6'); break;
+          case 'ATXHeading1':
+          case 'ATXHeading2':
+          case 'ATXHeading3':
+          case 'ATXHeading4':
+          case 'ATXHeading5':
+          case 'ATXHeading6': {
+            const headerMark = node.node.getChild('HeaderMark');
+            if (!headerMark || view.state.sliceDoc(headerMark.to, headerMark.to + 1) !== ' ') break;
+            addLine(node.from, `cm-heading cm-heading-${node.name.slice(-1)}`);
+            break;
+          }
 
           case 'StrongEmphasis':
             decorations.push(Decoration.mark({ class: 'cm-live-bold' }).range(node.from, node.to));
@@ -132,8 +137,12 @@ function buildPreviewDecorations(view) {
             break;
 
           case 'HeaderMark': {
-            const space = view.state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
-            decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to + space));
+            if (parent?.name?.startsWith('ATXHeading')) {
+              if (view.state.sliceDoc(node.to, node.to + 1) !== ' ') break;
+              decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to + 1));
+            } else {
+              decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to));
+            }
             break;
           }
 
@@ -169,17 +178,21 @@ function buildPreviewDecorations(view) {
             const first = view.state.doc.lineAt(node.from).number;
             const last = view.state.doc.lineAt(node.to).number;
             for (let line = first; line <= last; line += 1) {
+              const lineObj = view.state.doc.line(line);
+              const match = /^\s{0,3}>( ?)/.exec(lineObj.text);
+              const bareUnfinishedMarker = match && match[1] === '' && lineObj.text.length === match[0].length;
+              if (bareUnfinishedMarker) continue;
               const edgeClasses = [
                 line === first ? 'cm-live-quote-start' : '',
                 line === last ? 'cm-live-quote-end' : '',
               ].filter(Boolean).join(' ');
-              addLine(view.state.doc.line(line).from, `cm-live-quote ${edgeClasses}`);
+              addLine(lineObj.from, `cm-live-quote ${edgeClasses}`);
             }
             break;
           }
           case 'QuoteMark': {
-            const trailingSpace = view.state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
-            decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to + trailingSpace));
+            if (view.state.sliceDoc(node.to, node.to + 1) !== ' ') break;
+            decorations.push(Decoration.replace({ atomic: true }).range(node.from, node.to + 1));
             break;
           }
 
@@ -196,6 +209,7 @@ function buildPreviewDecorations(view) {
             break;
           case 'ListMark': {
             if (/^ \[[ xX]\]/.test(view.state.sliceDoc(node.to, node.to + 4))) break;
+            if (view.state.sliceDoc(node.to, node.to + 1) !== ' ') break;
             const marker = view.state.sliceDoc(node.from, node.to);
             const line = view.state.doc.lineAt(node.from);
             const prefix = view.state.sliceDoc(line.from, node.from);
