@@ -1,7 +1,7 @@
-import { EditorState, EditorSelection } from '@codemirror/state';
+import { EditorState, EditorSelection, Prec } from '@codemirror/state';
 import { EditorView, Decoration, ViewPlugin, WidgetType, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { markdown } from '@codemirror/lang-markdown';
+import { markdown, insertNewlineContinueMarkupCommand } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle, syntaxTree, indentUnit } from '@codemirror/language';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { GFM } from '@lezer/markdown';
@@ -229,7 +229,7 @@ function buildPreviewDecorations(view) {
                     ? `cm-list-bullet cm-list-bullet-${bulletDepth}`
                     : 'cm-list-number'
                 ),
-              }).range(canNormalizeIndentation ? line.from : node.from, node.to)
+              }).range(canNormalizeIndentation ? line.from : node.from, node.to + 1)
             );
             break;
           }
@@ -242,11 +242,12 @@ function buildPreviewDecorations(view) {
               addListLine(line, listDepth(node.node));
             }
             const marker = view.state.sliceDoc(node.from, node.to);
+            const trailingSpace = view.state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
             decorations.push(
               Decoration.replace({
                 atomic: true,
                 widget: new CheckboxWidget(/[xX]/.test(marker), node.from),
-              }).range(fullFrom, node.to)
+              }).range(fullFrom, node.to + trailingSpace)
             );
             break;
           }
@@ -470,6 +471,12 @@ const formattingKeymap = [
   { key: 'Mod-Alt-c', run: () => { applyFormatting('codeBlock'); return true; } },
 ];
 
+// On an empty list item, Enter dedents one level instead of the library default
+// of loosening a tight two-item list; repeated Enters walk out of the list entirely.
+const listExitKeymap = Prec.highest(keymap.of([
+  { key: 'Enter', run: insertNewlineContinueMarkupCommand({ nonTightLists: false }) },
+]));
+
 const highlightStyle = HighlightStyle.define([
   { tag: tags.heading, fontWeight: '700' },
   { tag: tags.strong, fontWeight: '700' },
@@ -587,6 +594,7 @@ function createEditor() {
     extensions: [
       history(),
       keymap.of([...formattingKeymap, ...searchKeymap, ...defaultKeymap, ...historyKeymap]),
+      listExitKeymap,
       markdown({ extensions: GFM }),
       indentUnit.of('  '),
       syntaxHighlighting(highlightStyle),
