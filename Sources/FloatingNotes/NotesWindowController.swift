@@ -69,17 +69,21 @@ final class NotesWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func show() {
-        if let frontmostApplication = NSWorkspace.shared.frontmostApplication,
-           frontmostApplication.processIdentifier != ProcessInfo.processInfo.processIdentifier {
-            applicationToReactivate = frontmostApplication
-        }
-
         store.reload()
         NSApp.unhide(nil)
         window?.makeKeyAndOrderFront(nil)
     }
 
     func hide() {
+        // Captured here rather than in show(): the panel is non-activating, so the user may
+        // switch to a different app while notes stays open. Whichever app is frontmost right
+        // before we hide is the one that should regain focus, not whatever was frontmost when
+        // notes was originally opened.
+        if let frontmostApplication = NSWorkspace.shared.frontmostApplication,
+           frontmostApplication.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            applicationToReactivate = frontmostApplication
+        }
+
         let wasVisible = window?.isVisible == true
         store.flush()
         window?.orderOut(nil)
