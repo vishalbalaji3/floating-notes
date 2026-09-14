@@ -4,7 +4,7 @@ These instructions apply to the entire repository.
 
 ## What this project is
 
-Floating Notes is a standalone, unsandboxed macOS 13+ app. The native shell is Swift/AppKit/SwiftUI. The Markdown editor is CodeMirror 6 running in a `WKWebView`. Notes are plain Markdown files and user data must remain readable without the app.
+Floating Notes is a standalone, unsandboxed macOS 13+ app. The native shell is Swift/AppKit/SwiftUI. The Markdown editor is Milkdown running in a `WKWebView`. Notes are plain Markdown files and user data must remain readable without the app.
 
 The application intentionally behaves like a background utility:
 
@@ -18,7 +18,7 @@ Preserve those lifecycle semantics unless the task explicitly changes them.
 ## Source boundaries
 
 - `Sources/FloatingNotes/`: native app source.
-- `editor-web/src/editor.js`: editable CodeMirror implementation.
+- `editor-web/src/editor.js`: editable Milkdown implementation.
 - `Sources/FloatingNotes/Resources/Editor/editor.bundle.js`: generated and gitignored; do not hand-edit it.
 - `NotesRepository.swift`: filesystem naming, moves, and persistence rules. Treat changes here as data-safety changes.
 - `NotesStore.swift`: in-memory state and autosave coordination.

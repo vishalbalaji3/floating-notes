@@ -42,6 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.onDockIconChange = { [weak self] _ in
             self?.updateActivationPolicy()
         }
+        settings.onAppIconChange = { [weak self] icon in
+            self?.setApplicationIcon(icon)
+        }
+        setApplicationIcon(settings.appIcon)
         setMenuBarIconVisible(settings.showMenuBarIcon)
         updateActivationPolicy()
 
@@ -151,6 +155,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSStatusBar.system.removeStatusItem(statusItem)
             self.statusItem = nil
         }
+    }
+
+    private func setApplicationIcon(_ icon: AppIconChoice) {
+        guard let image = icon.image else {
+            NSLog("Could not load the %@ app icon.", icon.displayName)
+            return
+        }
+        NSApp.applicationIconImage = image
     }
 
     private func makeStatusMenu() -> NSMenu {

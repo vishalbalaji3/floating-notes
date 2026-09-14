@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import WebKit
 
-/// The responder-chain endpoint for the Format menu. CodeMirror also owns these shortcuts,
+/// The responder-chain endpoint for the Format menu. Milkdown also owns these shortcuts,
 /// while these selectors let menu clicks invoke the exact same editor commands.
 final class MarkdownWebView: WKWebView {
     @objc func toggleMarkdownBold(_ sender: Any?) { applyFormatting("bold") }
@@ -42,13 +42,13 @@ final class MarkdownWebView: WKWebView {
     }
 }
 
-/// A CodeMirror 6 editor hosted in WKWebView. Markdown remains the source of truth on disk, but
-/// formatting stays rendered in place while editing, with commands supplied by the text toolbar.
+/// A Milkdown editor hosted in WKWebView. Markdown remains the source of truth on disk, with
+/// WYSIWYG editing and commands supplied by the text toolbar.
 struct PlainTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var pendingInsertion: PendingMarkdownInsertion?
     /// Changes whenever a different note is loaded; the coordinator swaps the editor's content
-    /// in place so the web view (and its loaded CodeMirror page) survives note switches.
+    /// in place so the web view (and its loaded Milkdown page) survives note switches.
     var identity: UUID
     var initialCursorPosition: Int
     var onCursorChange: (Int) -> Void
@@ -176,7 +176,7 @@ struct PlainTextEditor: NSViewRepresentable {
         }
 
         /// Wait until the button/menu action that selected the note has finished, then move both
-        /// AppKit and DOM focus into CodeMirror so typing can begin immediately.
+        /// AppKit and DOM focus into Milkdown so typing can begin immediately.
         func focusEditor() {
             DispatchQueue.main.async { [weak self] in
                 guard let webView = self?.webView else { return }

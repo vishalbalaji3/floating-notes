@@ -9,8 +9,10 @@ Each note is a plain `.md` file — no database or frontmatter. The default fold
 - **⌥.** toggles the panel from anywhere (registered via Carbon's `RegisterEventHotKey`, so no Accessibility permission prompt)
 - Standard macOS app behavior: Dock/⌘Tab presence and Application, File, Edit, Format, and Window menus
 - Independently hide the Dock icon and menu-bar icon; the app keeps running and remains available through **⌥.**
-- CodeMirror 6 editor with persistent formatted text: Markdown markers stay hidden while editing; open the bottom-right text tools to apply formatting
+- Choose between two bundled app icons; the monogram icon is selected by default
+- Milkdown WYSIWYG editor: Markdown stays rendered while editing; open the bottom-right text tools to apply formatting
 - GFM support for headings, tables, strikethrough, links, fenced code, lists, and interactive task checkboxes
+- Fenced code blocks include line numbers, syntax highlighting, copy support, and a searchable language selector
 - Bullet lists use `*` in Markdown, preview as dots, and support Tab/Shift-Tab nesting with hanging indentation
 - Autosaves ~300ms after you stop typing; always flushes immediately on hide or note switch
 - Standard **⌘Z/⇧⌘Z**, **⌘X**, **⌘C**, **⌘V**, and **⌘A** editing shortcuts
@@ -24,7 +26,7 @@ Each note is a plain `.md` file — no database or frontmatter. The default fold
 
 ## Build & run
 
-Requires Xcode's command-line tools (for `swift build` and `codesign`) and Node.js/npm (to bundle CodeMirror).
+Requires Xcode's command-line tools (for `swift build` and `codesign`) and Node.js/npm (to bundle Milkdown).
 
 ```bash
 ./build.sh
@@ -92,7 +94,7 @@ launchctl load ~/Library/LaunchAgents/com.vishalbalaji.floatingnotes.plist
 
 ## Settings and hotkey
 
-Open **Floating Notes → Settings…** or press **⌘,** to choose the notes folder and control the Dock and menu-bar icons independently. If both icons are hidden, use **⌥.** to reopen the window. Changing the folder does not move existing note files.
+Open **Floating Notes → Settings…** or press **⌘,** to choose the app icon and notes folder, and to control the Dock and menu-bar icons independently. If both visibility options are disabled, use **⌥.** to reopen the window. Changing the folder does not move existing note files.
 
 To change the global hotkey, edit the constants at the top of `Sources/FloatingNotes/HotKeyManager.swift` (`keyCode`, `modifiers`, `displayString`) and rebuild. Key codes are the `kVK_*` constants from `Carbon.HIToolbox`.
 
@@ -100,6 +102,7 @@ To change the global hotkey, edit the constants at the top of `Sources/FloatingN
 
 ```
 floating-notes/
+├── Assets/AppIcons/               # Source artwork for the two bundled app icons
 ├── Sources/FloatingNotes/
 │   ├── main.swift                 # Entry point, sets normal foreground app policy
 │   ├── AppDelegate.swift          # Status item, hotkey wiring, app lifecycle
@@ -110,10 +113,10 @@ floating-notes/
 │   ├── NotesStore.swift           # Observable state + autosave debounce
 │   ├── NotesWindowController.swift# The floating NSPanel hosting the SwiftUI editor
 │   ├── NoteEditorView.swift       # Single editor window and actions (SwiftUI)
-│   ├── PlainTextEditor.swift      # WKWebView/CodeMirror bridge
+│   ├── PlainTextEditor.swift      # WKWebView/Milkdown bridge
 │   ├── Resources/Editor/          # Editor HTML and generated JavaScript bundle
 │   └── NoteSwitcherView.swift     # Search/select/trash list (SwiftUI)
-├── editor-web/                    # CodeMirror live-preview source and build config
+├── editor-web/                    # Milkdown WYSIWYG source and build config
 ├── docs/RELEASING.md              # Release, signing-key, and updater runbook
 ├── .github/workflows/release.yml  # Tag-driven GitHub Release publisher
 ├── AGENTS.md                      # Repository guidance for coding agents
@@ -126,4 +129,4 @@ floating-notes/
 
 MIT — see [LICENSE](LICENSE).
 
-The live-preview editor architecture is inspired by [MD Sticky Notes](https://github.com/jaesuny/markdown-sticky-notes), also MIT licensed.
+The WYSIWYG editor is built with [Milkdown](https://github.com/Milkdown/milkdown), which is MIT licensed.

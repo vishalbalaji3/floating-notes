@@ -5,6 +5,7 @@ final class AppSettings: ObservableObject {
     static let shared = AppSettings()
     static let showMenuBarIconKey = "showMenuBarIcon"
     static let showDockIconKey = "showDockIcon"
+    static let appIconKey = "appIcon"
 
     @Published var showMenuBarIcon: Bool {
         didSet {
@@ -20,8 +21,16 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    @Published var appIcon: AppIconChoice {
+        didSet {
+            UserDefaults.standard.set(appIcon.rawValue, forKey: Self.appIconKey)
+            onAppIconChange?(appIcon)
+        }
+    }
+
     var onMenuBarIconChange: ((Bool) -> Void)?
     var onDockIconChange: ((Bool) -> Void)?
+    var onAppIconChange: ((AppIconChoice) -> Void)?
 
     private init() {
         if UserDefaults.standard.object(forKey: Self.showMenuBarIconKey) == nil {
@@ -34,5 +43,8 @@ final class AppSettings: ObservableObject {
         } else {
             showDockIcon = UserDefaults.standard.bool(forKey: Self.showDockIconKey)
         }
+        appIcon = AppIconChoice(
+            rawValue: UserDefaults.standard.string(forKey: Self.appIconKey) ?? ""
+        ) ?? .monogram
     }
 }

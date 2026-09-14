@@ -6,6 +6,8 @@
     <string>FloatingNotes</string>
     <key>CFBundleIdentifier</key>
     <string>com.vishalbalaji.floatingnotes</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleName</key>
     <string>Floating Notes</string>
     <key>CFBundlePackageType</key>

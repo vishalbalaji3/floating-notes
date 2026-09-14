@@ -35,6 +35,21 @@ struct SettingsView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 10) {
+                Text("App icon")
+                    .font(.headline)
+                HStack(spacing: 12) {
+                    ForEach(AppIconChoice.allCases) { icon in
+                        appIconButton(icon)
+                    }
+                }
+                Text("The selected icon is used in the Dock and app switcher. Monogram is the default for new installs.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
                 Text("Updates")
                     .font(.headline)
                 HStack {
@@ -96,6 +111,62 @@ struct SettingsView: View {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
     }
 
+    private func appIconButton(_ icon: AppIconChoice) -> some View {
+        let isSelected = settings.appIcon == icon
+
+        return Button {
+            settings.appIcon = icon
+        } label: {
+            HStack(spacing: 10) {
+                Group {
+                    if let image = icon.image {
+                        Image(nsImage: image)
+                            .resizable()
+                            .interpolation(.high)
+                    } else {
+                        Image(systemName: "app.dashed")
+                            .resizable()
+                            .scaledToFit()
+                            .padding(12)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(icon.displayName)
+                        .fontWeight(.medium)
+                    Text(icon.isDefault ? "Default" : "Alternate")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 4)
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity)
+            .background(
+                isSelected ? Color.accentColor.opacity(0.1) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(
+                        isSelected ? Color.accentColor : Color.secondary.opacity(0.25),
+                        lineWidth: isSelected ? 1.5 : 1
+                    )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Use \(icon.displayName) app icon")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+    }
+
     private func chooseDirectory() {
         let panel = NSOpenPanel()
         panel.title = "Choose Notes Folder"
@@ -130,14 +201,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     ) {
         self.onClose = onClose
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 445),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 620),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
         window.title = "Floating Notes Settings"
         window.isReleasedWhenClosed = false
-        window.contentMinSize = NSSize(width: 520, height: 445)
+        window.contentMinSize = NSSize(width: 520, height: 620)
         window.center()
         window.setFrameAutosaveName("FloatingNotesSettings")
         window.contentView = NSHostingView(
