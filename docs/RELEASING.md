@@ -13,6 +13,14 @@ Floating Notes uses Sparkle 2 to install updates from public GitHub Releases. Th
 
 Sparkle compares `CFBundleVersion`, not only the display version. The workflow sets `CFBundleShortVersionString` from the tag and `CFBundleVersion` from `github.run_number`, which increases across release workflow runs.
 
+## Automatic update checks
+
+Automatic checks are enabled by default through `SUEnableAutomaticChecks`. **Settings → Updates → Automatically check for updates** reads and writes Sparkle's own persisted preference, so an existing opt-out is preserved. Sparkle schedules daily checks while the process is running; **Check for Updates…** remains available when automatic checks are disabled.
+
+`SUAutomaticallyUpdate` and `SUAllowsAutomaticUpdates` are both false to require user approval before installation.
+
+To verify, toggle automatic checks off and on, reopen Settings and relaunch the app, and confirm the preference persists. Check that a manual update check still works with automatic checks disabled.
+
 ## Prerequisites
 
 Before publishing, verify that:

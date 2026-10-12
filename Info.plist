@@ -24,6 +24,8 @@
     <true/>
     <key>SUAutomaticallyUpdate</key>
     <false/>
+    <key>SUAllowsAutomaticUpdates</key>
+    <false/>
     <key>SUFeedURL</key>
     <string>https://github.com/vishalbalaji3/floating-notes/releases/latest/download/appcast.xml</string>
     <key>SUPublicEDKey</key>

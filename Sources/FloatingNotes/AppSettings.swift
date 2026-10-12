@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 
 @MainActor
 final class AppSettings: ObservableObject {
@@ -6,6 +7,25 @@ final class AppSettings: ObservableObject {
     static let showMenuBarIconKey = "showMenuBarIcon"
     static let showDockIconKey = "showDockIcon"
     static let appIconKey = "appIcon"
+
+    @Published private(set) var loginItemStatus = SMAppService.mainApp.status
+
+    var launchAtLogin: Bool {
+        loginItemStatus == .enabled || loginItemStatus == .requiresApproval
+    }
+
+    func refreshLoginItemStatus() {
+        loginItemStatus = SMAppService.mainApp.status
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) throws {
+        defer { refreshLoginItemStatus() }
+        if enabled {
+            try SMAppService.mainApp.register()
+        } else {
+            try SMAppService.mainApp.unregister()
+        }
+    }
 
     @Published var showMenuBarIcon: Bool {
         didSet {

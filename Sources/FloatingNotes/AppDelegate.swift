@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store = NotesStore()
         settingsController = SettingsWindowController(
             settings: settings,
+            updater: updaterController.updater,
             onChangeNotesDirectory: { [weak self] url in
                 try self?.store.changeNotesDirectory(to: url)
             },

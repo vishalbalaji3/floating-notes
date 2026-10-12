@@ -9,6 +9,7 @@ Each note is a plain `.md` file — no database or frontmatter. The default fold
 - **⌥.** toggles the panel from anywhere (registered via Carbon's `RegisterEventHotKey`, so no Accessibility permission prompt)
 - Standard macOS app behavior: Dock/⌘Tab presence and Application, File, Edit, Format, and Window menus
 - Independently hide the Dock icon and menu-bar icon; the app keeps running and remains available through **⌥.**
+- Optional launch at login, managed directly in Settings
 - Choose between two bundled app icons; the monogram icon is selected by default
 - Milkdown WYSIWYG editor: Markdown stays rendered while editing; open the bottom-right text tools to apply formatting
 - GFM support for headings, tables, strikethrough, links, fenced code, lists, and interactive task checkboxes
@@ -41,7 +42,7 @@ The app uses [Sparkle](https://sparkle-project.org/) and GitHub Releases. Update
 
 Update behavior:
 
-- Sparkle checks the public `appcast.xml` feed automatically, at most once per day.
+- Sparkle checks the public `appcast.xml` feed daily while the app is running. Automatic checks are enabled by default and can be changed in **Settings → Updates**.
 - **Check for Updates…** starts an immediate user-initiated check.
 - If a newer build is available, Sparkle verifies its signature before offering to install and relaunch.
 - Automatic installation is disabled; the user always chooses when to install.
@@ -65,32 +66,11 @@ See [Release and updater operations](docs/RELEASING.md) for the complete release
 
 ## Run at login
 
-Copy the built app to `/Applications`, then add it as a Login Item:
+Copy the built app to `/Applications`, open that copy, then enable **Settings → General → Launch at login**. Floating Notes starts in the background and remains available with **⌥.**. The option is off until you enable it.
 
-**System Settings → General → Login Items → +** → select `Floating Notes.app`
+If macOS requires approval, Settings shows an **Open Login Items Settings…** button. Approve Floating Notes there; its status refreshes when you return to the app. Disable **Launch at login** to unregister it.
 
-Or use a LaunchAgent if you'd rather not show it in Login Items:
-
-```bash
-mkdir -p ~/Library/LaunchAgents
-cat > ~/Library/LaunchAgents/com.vishalbalaji.floatingnotes.plist <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.vishalbalaji.floatingnotes</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/Applications/Floating Notes.app/Contents/MacOS/FloatingNotes</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-EOF
-launchctl load ~/Library/LaunchAgents/com.vishalbalaji.floatingnotes.plist
-```
+If you previously configured a custom LaunchAgent using the old instructions, manage that agent separately to avoid duplicate startup entries; the app does not remove existing agents.
 
 ## Settings and hotkey
 
