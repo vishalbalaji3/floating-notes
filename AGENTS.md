@@ -86,3 +86,11 @@ Do not trigger a release, push a version tag, replace repository secrets, change
 - Update README.md and `docs/RELEASING.md` when commands, release assets, versioning, update hosting, key handling, or minimum system requirements change.
 - Keep third-party dependency changes pinned in `Package.resolved` and `editor-web/package-lock.json`.
 - Prefer focused edits over broad rewrites, especially in `editor-web/src/editor.js` and filesystem persistence code.
+
+## Ship
+
+- Integrate: push to `main`.
+- Checks: `./build.sh`; then exercise the changed window or flow by hand (no XCTest suite).
+- Ship: tag the next `vMAJOR.MINOR.PATCH` on a pushed `main` commit and push the tag (see `docs/RELEASING.md`). A "full send" request authorizes this tag for that task.
+- Verify: the release workflow finishes, the GitHub Release has the zip and `appcast.xml`, and **Check for Updates…** in the installed app offers the new version.
+- Needs the user: clicking Install in the Sparkle prompt.
